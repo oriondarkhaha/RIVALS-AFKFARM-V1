@@ -75,7 +75,7 @@ WeaponItems := "Distortion|Permafrost|Energy Rifle|Flamethrower|Grenade Launcher
 Gui, 1:Add, ListBox, x160 y95 w260 h150 vWeaponList +Hidden cBlack, %WeaponItems%
 Gui, 1:Add, Button, x160 y255 w260 h30 gSaveWeapons vSaveWpBtn +Hidden, Save Weapon Config
 Gui, 1:Font, s7 Bold c%InfoColor%
-Gui, 1:Add, Text, x160 y300 w260 h40 vMaintText +Center +Hidden, IN MAINTENANCE. USE COORDINATES FOR NOW.
+Gui, 1:Add, Text, x160 y300 w260 h40 vMaintText +Center +Hidden, IN MAINTENANCE. USE COORDINATES.
 
 ; Section: Settings
 Gui, 1:Font, s10 Bold c%TextColor%
@@ -117,7 +117,7 @@ Gui, 2:Add, Text, x10 y5 w280 h25 vStatusText, Status: IDLE
 Gui, 1:Show, w450 h400, RIVALS AFK V1
 return
 
-; --- Labels & Functions ---
+; --- Core Automation ---
 
 UpdateStatus(msg) {
     global UseStatus
@@ -126,6 +126,102 @@ UpdateStatus(msg) {
         Gui, 2:Show, xCenter y0 NoActivate w300 h35
     }
 }
+
+StartGrind:
+    Gui, 1:Submit, NoHide
+    UpdateStatus("STARTING...")
+    SetTimer, RejoinSequence, % RejoinMinutes * 60000
+    GoSub, RejoinSequence
+return
+
+PauseGrind:
+    Pause, Toggle, 1
+    UpdateStatus(A_IsPaused ? "PAUSED" : "RESUMED")
+return
+
+StopGrind:
+    Reload
+return
+
+RejoinSequence:
+    SetTimer, CombatLoopTimer, Off 
+    Gui, 1:Submit, NoHide ; Refresh global variables from UI
+    
+    UpdateStatus("OPENING PRIVATE LINK...")
+    Run, %PrivateLinkEdit%
+    
+    Random, LoadExtra, 0, 5000
+    UpdateStatus("WAITING FOR CLIENT...")
+    Sleep, 45000 + LoadExtra 
+    
+    CoordMode, Mouse, Screen
+    
+    UpdateStatus("FOCUSING WINDOW...")
+    MouseMove, A_ScreenWidth/2, A_ScreenHeight/2, 0
+    Click
+    Sleep, 1500 ; Increased focus delay
+    
+    if (UseManualBtn) {
+        UpdateStatus("ACTION: PLAY (MANUAL)")
+        MouseMove, %PX%, %PY%, 2 
+        Sleep, 200
+        Click
+        
+        UpdateStatus("SCROLLING...")
+        EndTime := A_TickCount + 3000
+        while (A_TickCount < EndTime) {
+            Click, WheelDown
+            Random, ScrollVar, 30, 60
+            Sleep, %ScrollVar%
+        }
+        Click
+        
+        UpdateStatus("WAITING (10s)...")
+        Sleep, 10000
+        
+        UpdateStatus("ACTION: JOIN")
+        MouseMove, %JX%, %JY%, 2 
+        Sleep, 200
+        Click
+        
+        UpdateStatus("SELECTING WEAPONS...")
+        Sleep, 2000
+        ClickWeapon(W1X, W1Y)
+        ClickWeapon(W2X, W2Y)
+        ClickWeapon(W3X, W3Y)
+        ClickWeapon(W4X, W4Y)
+    } else {
+        UpdateStatus("IMAGE SEARCH (NOT IMPLEMENTED)")
+        ; This would be your play.png logic
+    }
+    
+    UpdateStatus("GRINDING...")
+    Sleep, 2000
+    SetTimer, CombatLoopTimer, 10
+return
+
+ClickWeapon(X, Y) {
+    if (X > 0) {
+        MouseMove, %X%, %Y%, 2 
+        Sleep, 100
+        Click
+        Sleep, 500
+    }
+}
+
+CombatLoopTimer:
+    Random, Jitter, -1, 1
+    DllCall("mouse_event", uint, 1, int, 100 + Jitter, int, 0, uint, 0, int, 0)
+    Send, {w down}{Space down}
+    Click
+    Random, CWait, 40, 75
+    Sleep, %CWait%
+    Send, {w up}{Space up}
+    Random, LWait, 15, 30
+    Sleep, %LWait%
+return
+
+; --- Navigation & UI ---
 
 ShowPS:
     ToggleSection("PS")
@@ -141,7 +237,7 @@ ShowDono:
 return
 
 SaveWeapons:
-    MsgBox, 48, Maintenance, This tab is currently in maintenance. Please use manual coordinates in the Settings tab.
+    MsgBox, 48, Maintenance, Tab in Maintenance. Use Settings tab.
 return
 
 SaveLink:
@@ -168,82 +264,6 @@ SaveSettings:
     MsgBox, 64, Saved, Settings Saved!, 1
 return
 
-StartGrind:
-    Gui, 1:Submit, NoHide
-    UpdateStatus("STARTING...")
-    SetTimer, RejoinSequence, % RejoinMinutes * 60000
-    GoSub, RejoinSequence
-return
-
-PauseGrind:
-    Pause, Toggle, 1
-    UpdateStatus(A_IsPaused ? "PAUSED" : "RESUMED")
-return
-
-StopGrind:
-    Reload
-return
-
-RejoinSequence:
-    SetTimer, CombatLoopTimer, Off 
-    UpdateStatus("OPENING PRIVATE LINK...")
-    Run, %PrivateLinkEdit%
-    Random, LoadExtra, 0, 5000
-    UpdateStatus("WAITING FOR CLIENT...")
-    Sleep, 45000 + LoadExtra 
-    CoordMode, Mouse, Screen
-    UpdateStatus("FOCUSING WINDOW...")
-    MouseMove, A_ScreenWidth/2, A_ScreenHeight/2, 0
-    Click
-    Sleep, 800
-    
-    if (UseManual) {
-        UpdateStatus("ACTION: PLAY")
-        MouseMove, %PX%, %PY%, 2 
-        Click
-        UpdateStatus("SCROLLING...")
-        EndTime := A_TickCount + 3000
-        while (A_TickCount < EndTime) {
-            Click, WheelDown
-            Random, ScrollVar, 30, 60
-            Sleep, %ScrollVar%
-        }
-        Click
-        UpdateStatus("WAITING (10s)...")
-        Sleep, 10000
-        UpdateStatus("ACTION: JOIN")
-        MouseMove, %JX%, %JY%, 2 
-        Click
-        Sleep, 1500
-        ClickWeapon(W1X, W1Y), ClickWeapon(W2X, W2Y), ClickWeapon(W3X, W3Y), ClickWeapon(W4X, W4Y)
-    } else {
-        ; ImageSearch fallback
-    }
-    Sleep, 2000
-    UpdateStatus("GRINDING...")
-    SetTimer, CombatLoopTimer, 10
-return
-
-ClickWeapon(X, Y) {
-    if (X > 0) {
-        MouseMove, %X%, %Y%, 2 
-        Click
-        Sleep, 400
-    }
-}
-
-CombatLoopTimer:
-    Random, Jitter, -1, 1
-    DllCall("mouse_event", uint, 1, int, 100 + Jitter, int, 0, uint, 0, int, 0)
-    Send, {w down}{Space down}
-    Click
-    Random, CWait, 40, 75
-    Sleep, %CWait%
-    Send, {w up}{Space up}
-    Random, LWait, 15, 30
-    Sleep, %LWait%
-return
-
 ToggleManual:
     Gui, 1:Submit, NoHide
     IniWrite, %UseManualBtn%, settings.ini, Config, UseManual
@@ -257,7 +277,7 @@ ToggleStatus:
 return
 
 ShowInfoHelp:
-    MsgBox, 64, Help, Use SET buttons to map screen. F1: Start, F2: Pause, F3: Reload.
+    MsgBox, 64, Help, Use SET buttons to map. F1: Start, F2: Pause, F3: Reload.
 return
 
 OpenDonoUsLink:
@@ -285,6 +305,7 @@ ToggleSection(S) {
             GuiControl, 1:Show, %A_LoopField%
 }
 
+; Coordinate Capture Labels
 CapPlay:
     ToolTip, Click PLAY
     KeyWait, LButton, D
